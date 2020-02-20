@@ -45,8 +45,8 @@ func main() {
 	fmt.Printf("Target Address = %v\n", targetAddr)
 	fmt.Println("Starting...")
 
-	// listen to incoming udp packets
-	netpc, err := net.ListenPacket("ip4:udp", "0.0.0.0")
+	// listen to incoming udp packets (all interfaces)
+	netpc, err := net.ListenPacket("ip4:udp", "")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +59,6 @@ func main() {
 	pc.SetControlMessage(ipv4.FlagDst, true)
 	pc.SetControlMessage(ipv4.FlagSrc, true)
 
-	//for i := 0; i < 10; i++ {
 	for {
 		buf := make([]byte, 1024)
 		h, p, cm, err := pc.ReadFrom(buf)
@@ -102,15 +101,7 @@ func serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, 
 		log.Fatal(err)
 	}
 	// Yeah, hack
-	buf[16] = bcast.IP.To4()[0]
-	buf[17] = bcast.IP.To4()[1]
-	buf[18] = bcast.IP.To4()[2]
-	buf[19] = bcast.IP.To4()[3]
-	// h.Dst = bcast.IP.To4()
-	// newpacket, err := h.Marshal()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	copy(buf[16:], bcast.IP.To4())
 	fmt.Printf("Redirecting to %v\nNew Packet:\n%s\n\n", bcast, hex.Dump(buf))
 	_, err = pc.WriteToIP(buf, bcast)
 	if err != nil {
