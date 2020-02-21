@@ -8,9 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-
 	"golang.org/x/net/ipv4"
 )
 
@@ -79,21 +76,20 @@ func serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, 
 		return
 	}
 
-	packet := layers.UDP{}
-	err := packet.DecodeFromBytes(p, gopacket.NilDecodeFeedback)
+	packet, err := BytesToUDP(p)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if packet.DstPort != 65001 {
-		if packet.SrcPort == 65001 {
+	if packet.DstPort() != 65001 {
+		if packet.SrcPort() == 65001 {
 			fmt.Printf("RETURN packet, header=%v, control=%v, udp=%v\nPayload:\n%sData:\n%s\nUDP Payload:\n%s",
-				h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet.Payload))
+				h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
 		}
 		return
 	}
 
 	fmt.Printf("packet #%d, header=%v, control=%v, udp=%v\nPayload:\n%sData:\n%s\nUDP Payload:\n%s",
-		count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet.Payload))
+		count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
 	count++
 
 	bcast, err := net.ResolveIPAddr("ip", "192.168.5.117")
