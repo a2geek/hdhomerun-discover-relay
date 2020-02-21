@@ -18,7 +18,6 @@ var sourceAddr net.Addr
 var sourceIP net.IP
 var sourceIfIndex int
 var targetCIDR *net.IPNet
-var targetAddr *net.UDPAddr
 var ignoreIPs []string
 
 func main() {
@@ -31,15 +30,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	targetAddr, err = net.ResolveUDPAddr("udp", "192.168.5.255:65001")
-	if err != nil {
-		log.Fatal(err)
-	}
 	ignoreIPs = strings.Split("192.168.5.254", ",")
 
 	fmt.Printf("Source CIDR = %v\n", sourceCIDR)
 	fmt.Printf("Target CIDR = %v\n", targetCIDR)
-	fmt.Printf("Target Address = %v\n", targetAddr)
 	fmt.Println("Starting...")
 
 	// listen to incoming udp packets (all interfaces)
