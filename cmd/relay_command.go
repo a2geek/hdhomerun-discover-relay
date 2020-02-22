@@ -22,9 +22,6 @@ var sourceIfIndex int
 var targetCIDR *net.IPNet
 var ignoreIPs []string
 
-// command options...
-// hdr [-v|--verbose] relay <source_cidr> : will discover target ip
-
 type RelayCommand struct {
 	Args struct {
 		SourceCidr string `positional-arg-name:"cidr" description:"Source CIDR for application looking for HDHomeRun"`
