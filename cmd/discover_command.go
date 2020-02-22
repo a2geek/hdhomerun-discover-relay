@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"strings"
+	"time"
 
 	"hdhomerun-discover-relay/hdhr"
 
@@ -18,6 +20,7 @@ func (cmd DiscoverCommand) Execute(args []string) error {
 		return err
 	}
 	defer pc.Close()
+	pc.SetReadDeadline(time.Now().Add(time.Second * 1))
 
 	rc, err := ipv4.NewRawConn(pc)
 	if err != nil {
@@ -26,11 +29,26 @@ func (cmd DiscoverCommand) Execute(args []string) error {
 	rc.SetControlMessage(ipv4.FlagDst, true)
 	rc.SetControlMessage(ipv4.FlagSrc, true)
 
-	ip, err := hdhr.Discover(rc)
+	ips, err := hdhr.Discover(rc)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("HDHomeRun found at %v\n", ip)
+	switch len(ips) {
+	case 0:
+		fmt.Printf("No HDHomeRun(s) found!\n")
+	case 1:
+		fmt.Printf("%d HDHomeRun found at %s.\n", len(ips), strings.Join(ipToString(ips), ","))
+	default:
+		fmt.Printf("%d HDHomeRuns found at %s.\n", len(ips), strings.Join(ipToString(ips), ", "))
+	}
 	return nil
+}
+
+func ipToString(ips []net.IP) []string {
+	s := make([]string, 0)
+	for _, ip := range ips {
+		s = append(s, ip.String())
+	}
+	return s
 }
