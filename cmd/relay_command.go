@@ -12,24 +12,24 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-var count = 0
-var mutex = sync.Mutex{}
-var sourceCIDR *net.IPNet
-
 type RelayCommand struct {
 	Args struct {
 		SourceCidr string `positional-arg-name:"cidr" description:"Source CIDR for application looking for HDHomeRun"`
 	} `positional-args:"yes" required:"yes"`
+
+	count      int
+	mutex      sync.Mutex
+	sourceCIDR *net.IPNet
 }
 
 func (cmd RelayCommand) Execute(args []string) error {
 	var err error
-	_, sourceCIDR, err = net.ParseCIDR(cmd.Args.SourceCidr)
+	_, cmd.sourceCIDR, err = net.ParseCIDR(cmd.Args.SourceCidr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Source CIDR = %v\n", sourceCIDR)
+	fmt.Printf("Source CIDR = %v\n", cmd.sourceCIDR)
 	fmt.Println("Starting...")
 
 	// listen to incoming udp packets (all interfaces)
@@ -52,15 +52,15 @@ func (cmd RelayCommand) Execute(args []string) error {
 		if err != nil {
 			continue
 		}
-		go serve(pc, h, p, cm, buf[:h.TotalLen])
+		go cmd.serve(pc, h, p, cm, buf[:h.TotalLen])
 	}
 }
 
-func serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, buf []byte) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (cmd *RelayCommand) serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, buf []byte) {
+	cmd.mutex.Lock()
+	defer cmd.mutex.Unlock()
 
-	if !sourceCIDR.Contains(h.Src) {
+	if !cmd.sourceCIDR.Contains(h.Src) {
 		fmt.Printf("Ignoring %s\n", h.Src.String())
 		return
 	}
@@ -78,8 +78,8 @@ func serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, 
 	}
 
 	fmt.Printf("packet #%d, header=%v, control=%v, udp=%v\nPayload:\n%sData:\n%s\nUDP Payload:\n%s",
-		count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
-	count++
+		cmd.count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
+	cmd.count++
 
 	bcast, err := net.ResolveIPAddr("ip", "192.168.5.117")
 	if err != nil {
