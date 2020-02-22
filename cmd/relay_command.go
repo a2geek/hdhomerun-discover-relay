@@ -7,7 +7,9 @@ import (
 	"net"
 	"sync"
 
+	"hdhomerun-discover-relay/hdhr"
 	"hdhomerun-discover-relay/packet"
+	"hdhomerun-discover-relay/util"
 
 	"golang.org/x/net/ipv4"
 )
@@ -20,17 +22,16 @@ type RelayCommand struct {
 	count      int
 	mutex      sync.Mutex
 	sourceCIDR *net.IPNet
+	hdhrIPs    []net.IP
 }
 
-func (cmd RelayCommand) Execute(args []string) error {
+func (cmd *RelayCommand) Execute(args []string) error {
 	var err error
 	_, cmd.sourceCIDR, err = net.ParseCIDR(cmd.Args.SourceCidr)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Printf("Source CIDR = %v\n", cmd.sourceCIDR)
-	fmt.Println("Starting...")
 
 	// listen to incoming udp packets (all interfaces)
 	netpc, err := net.ListenPacket("ip4:udp", "")
@@ -46,6 +47,16 @@ func (cmd RelayCommand) Execute(args []string) error {
 	pc.SetControlMessage(ipv4.FlagDst, true)
 	pc.SetControlMessage(ipv4.FlagSrc, true)
 
+	cmd.hdhrIPs, err = hdhr.Discover(pc)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(cmd.hdhrIPs) == 0 {
+		log.Fatalf("No HDHomeRun discovered!")
+	}
+	fmt.Printf("HDHomeRun IP(s): %s\n", util.IpToString(cmd.hdhrIPs))
+
+	fmt.Println("Starting...")
 	for {
 		buf := make([]byte, 1024)
 		h, p, cm, err := pc.ReadFrom(buf)
@@ -81,24 +92,13 @@ func (cmd *RelayCommand) serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *i
 		cmd.count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
 	cmd.count++
 
-	bcast, err := net.ResolveIPAddr("ip", "192.168.5.117")
-	if err != nil {
-		log.Fatal(err)
-	}
 	// Yeah, hack
-	copy(buf[16:], bcast.IP.To4())
-	fmt.Printf("Redirecting to %v\nNew Packet:\n%s\n\n", bcast, hex.Dump(buf))
-	_, err = pc.WriteToIP(buf, bcast)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func contains(a []string, s string) bool {
-	for _, v := range a {
-		if v == s {
-			return true
+	for _, ip := range cmd.hdhrIPs {
+		copy(buf[16:], ip.To4())
+		fmt.Printf("Redirecting to %v\nNew Packet:\n%s\n\n", ip, hex.Dump(buf))
+		_, err = pc.WriteToIP(buf, &net.IPAddr{ip, ""})
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
-	return false
 }

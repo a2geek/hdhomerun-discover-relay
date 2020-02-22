@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hdhomerun-discover-relay/hdhr"
+	"hdhomerun-discover-relay/util"
 
 	"golang.org/x/net/ipv4"
 )
@@ -38,17 +39,9 @@ func (cmd DiscoverCommand) Execute(args []string) error {
 	case 0:
 		fmt.Printf("No HDHomeRun(s) found!\n")
 	case 1:
-		fmt.Printf("%d HDHomeRun found at %s.\n", len(ips), strings.Join(ipToString(ips), ","))
+		fmt.Printf("%d HDHomeRun found at %s.\n", len(ips), strings.Join(util.IpToString(ips), ","))
 	default:
-		fmt.Printf("%d HDHomeRuns found at %s.\n", len(ips), strings.Join(ipToString(ips), ", "))
+		fmt.Printf("%d HDHomeRuns found at %s.\n", len(ips), strings.Join(util.IpToString(ips), ", "))
 	}
 	return nil
-}
-
-func ipToString(ips []net.IP) []string {
-	s := make([]string, 0)
-	for _, ip := range ips {
-		s = append(s, ip.String())
-	}
-	return s
 }
