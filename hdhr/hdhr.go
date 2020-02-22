@@ -21,7 +21,26 @@ var discoveryPacket = []byte{
 	0x73, 0xcc, 0x7d, 0x8f, // crc
 }
 
+// Discover sends the HDHomeRun discovery packet and waits for a response.
 func Discover(rc *ipv4.RawConn) (net.IP, error) {
+	if err := sendPacket(); err != nil {
+		return nil, err
+	}
+
+	ch := waitForResponse(rc)
+
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case resp := <-ch:
+		return resp.ip, resp.err
+	case <-timer.C:
+		return nil, fmt.Errorf("timed out waiting for response")
+	}
+}
+
+func sendPacket() error {
 	socket, err := net.DialUDP("udp4", nil, &net.UDPAddr{
 		IP:   net.IPv4(255, 255, 255, 255),
 		Port: 65001,
@@ -29,47 +48,39 @@ func Discover(rc *ipv4.RawConn) (net.IP, error) {
 	defer socket.Close()
 
 	_, err = socket.Write(discoveryPacket)
-	if err != nil {
-		return nil, err
-	}
+	return err
+}
 
-	ipch := make(chan net.IP, 1)
-	defer close(ipch)
+type responsePacket struct {
+	ip  net.IP
+	err error
+}
 
-	errch := make(chan error, 1)
-	defer close(errch)
+func waitForResponse(rc *ipv4.RawConn) <-chan *responsePacket {
+	ch := make(chan *responsePacket, 1)
 
 	go func() {
+		defer close(ch)
 		data := make([]byte, 2048)
 		for {
 			_, ip, err := rc.ReadFromIP(data)
 			if err != nil {
-				errch <- err
+				ch <- &responsePacket{nil, err}
 				return
 			}
 			udp, err := packet.BytesToUDP(data)
 			if err != nil {
-				errch <- err
+				ch <- &responsePacket{nil, err}
 				return
 			}
 			fmt.Printf("packet with src=%d, dst=%d, ip=%v\n", udp.SrcPort(), udp.DstPort(), ip)
 			if udp.SrcPort() != 65001 {
 				continue
 			}
-			ipch <- ip.IP
+			ch <- &responsePacket{ip.IP, nil}
 			return
 		}
 	}()
 
-	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
-
-	select {
-	case ip := <-ipch:
-		return ip, nil
-	case err = <-errch:
-		return nil, err
-	case <-timer.C:
-		return nil, fmt.Errorf("timed out waiting for response")
-	}
+	return ch
 }
