@@ -7,8 +7,6 @@ import (
 )
 
 type Options struct {
-	Verbose []bool `short:"v" long:"verbose" description:"Show verbose debug information; use multiple times for more detail"`
-
 	Discover cmd.DiscoverCommand `command:"discover" alias:"d" description:"Test HDHomeRun discovery mechanism"`
 	Relay    cmd.RelayCommand    `command:"relay" alias:"r" description:"Relay HDHomeRun discovery packets"`
 }
