@@ -6,6 +6,8 @@ Enable products that use HDHomeRun to run within a virtual machine on a differen
 
 The discovery mechanism broadcasts on UDP port 65001 to 255.255.255.255. This tool catches that packet, and sends it to the HDHomeRun.
 
+Note that this does not allow all packets back into the VM, but [this advice](https://www.mythtv.org/wiki/Silicondust_HDHomeRun_Dual#Can.27t_Connect_to_HDHR.3F) seems to help with that.
+
 ## Compile
 
 ```
