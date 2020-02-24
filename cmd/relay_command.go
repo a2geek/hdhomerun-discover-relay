@@ -40,14 +40,14 @@ func (cmd *RelayCommand) Execute(args []string) error {
 	}
 	defer netpc.Close()
 
-	pc, err := ipv4.NewRawConn(netpc)
+	rc, err := ipv4.NewRawConn(netpc)
 	if err != nil {
 		log.Fatal(err)
 	}
-	pc.SetControlMessage(ipv4.FlagDst, true)
-	pc.SetControlMessage(ipv4.FlagSrc, true)
+	rc.SetControlMessage(ipv4.FlagDst, true)
+	rc.SetControlMessage(ipv4.FlagSrc, true)
 
-	cmd.hdhrIPs, err = hdhr.Discover(pc)
+	cmd.hdhrIPs, err = hdhr.Discover(rc)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,16 +58,16 @@ func (cmd *RelayCommand) Execute(args []string) error {
 
 	fmt.Println("Starting...")
 	for {
-		buf := make([]byte, 1024)
-		h, p, cm, err := pc.ReadFrom(buf)
+		buf := make([]byte, 10240)
+		h, payload, cm, err := rc.ReadFrom(buf)
 		if err != nil {
 			continue
 		}
-		go cmd.serve(pc, h, p, cm, buf[:h.TotalLen])
+		go cmd.serve(rc, h, payload, cm, buf[:h.TotalLen])
 	}
 }
 
-func (cmd *RelayCommand) serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *ipv4.ControlMessage, buf []byte) {
+func (cmd *RelayCommand) serve(rc *ipv4.RawConn, h *ipv4.Header, payload []byte, cm *ipv4.ControlMessage, buf []byte) {
 	cmd.mutex.Lock()
 	defer cmd.mutex.Unlock()
 
@@ -76,27 +76,23 @@ func (cmd *RelayCommand) serve(pc *ipv4.RawConn, h *ipv4.Header, p []byte, cm *i
 		return
 	}
 
-	packet, err := packet.BytesToUDP(p)
+	packet, err := packet.BytesToUDP(payload)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if packet.DstPort() != 65001 {
-		if packet.SrcPort() == 65001 {
-			fmt.Printf("RETURN packet, header=%v, control=%v, udp=%v\nPayload:\n%sData:\n%s\nUDP Payload:\n%s",
-				h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
-		}
 		return
 	}
 
-	fmt.Printf("packet #%d, header=%v, control=%v, udp=%v\nPayload:\n%sData:\n%s\nUDP Payload:\n%s",
-		cmd.count, h, cm, packet, hex.Dump(p), hex.Dump(buf), hex.Dump(packet))
+	fmt.Printf("packet #%d, header=%v, control=%v, udp=%v\nData:\n%s",
+		cmd.count, h, cm, packet, hex.Dump(buf))
 	cmd.count++
 
 	// Yeah, hack
 	for _, ip := range cmd.hdhrIPs {
 		copy(buf[16:], ip.To4())
 		fmt.Printf("Redirecting to %v\nNew Packet:\n%s\n\n", ip, hex.Dump(buf))
-		_, err = pc.WriteToIP(buf, &net.IPAddr{ip, ""})
+		_, err = rc.WriteToIP(buf, &net.IPAddr{ip, ""})
 		if err != nil {
 			log.Fatal(err)
 		}
