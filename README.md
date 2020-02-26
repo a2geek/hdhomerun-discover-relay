@@ -1,5 +1,8 @@
 # HDHomeRun discover relay
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/a2geek/hdhomerun-discover-relay)](https://goreportcard.com/report/github.com/a2geek/hdhomerun-discover-relay)
+[![GitHub release](https://img.shields.io/github/v/release/a2geek/hdhomerun-discover-relay)](https://github.com/a2geek/hdhomerun-discover-relay/releases/latest)
+
 ## Purpose
 
 Enable products that use HDHomeRun to run within a virtual machine on a different subnet than the physical device resides.
